@@ -1,7 +1,10 @@
 // Nextcloud Talk plugin module implements bot preflight behavior.
 import { formatErrorMessage } from "openclaw/plugin-sdk/error-runtime";
 import { parseStrictNonNegativeInteger } from "openclaw/plugin-sdk/number-runtime";
-import { readProviderJsonResponse } from "openclaw/plugin-sdk/provider-http";
+import {
+  readProviderJsonResponse,
+  readResponseTextLimited,
+} from "openclaw/plugin-sdk/provider-http";
 import { fetchWithSsrFGuard } from "../runtime-api.js";
 import type { ResolvedNextcloudTalkAccount } from "./accounts.js";
 import { resolveNextcloudTalkApiCredentials } from "./api-credentials.js";
@@ -125,7 +128,7 @@ export async function probeNextcloudTalkBotResponseFeature(params: {
     });
     try {
       if (!response.ok) {
-        const body = await response.text().catch(() => "");
+        const body = await readResponseTextLimited(response, 4 * 1024).catch(() => "");
         return {
           ok: false,
           code: "api_error",
