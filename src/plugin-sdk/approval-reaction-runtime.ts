@@ -8,6 +8,7 @@ import {
   type ExecApprovalPendingReplyParams,
   type ExecApprovalReplyDecision,
 } from "../infra/exec-approval-reply.js";
+import { normalizeExecAsk } from "../infra/exec-approvals.js";
 import type { PluginApprovalRequest } from "../infra/plugin-approvals.js";
 /**
  * @deprecated Compatibility subpath for shipped approval reaction helpers.
@@ -242,7 +243,8 @@ function buildManualInstructionSection(params: {
 }): string[] {
   const lines: string[] = [];
   if (!params.allowedDecisions.includes("allow-always")) {
-    const isPolicyAlways = !params.ask || params.ask === "always";
+    const normalizedAsk = normalizeExecAsk(params.ask);
+    const isPolicyAlways = !normalizedAsk || normalizedAsk === "always";
     lines.push(
       isPolicyAlways
         ? "Allow Always is unavailable because the effective policy requires approval every time."
