@@ -11,6 +11,7 @@ import { resolveNextcloudTalkApiCredentials } from "./api-credentials.js";
 import { ssrfPolicyFromPrivateNetworkOptIn } from "./send.runtime.js";
 
 const BOT_FEATURE_RESPONSE = 2;
+const BOT_PREFLIGHT_ERROR_BODY_LIMIT_BYTES = 8 * 1024;
 
 type NextcloudTalkBotAdminEntry = {
   id?: number | string;
@@ -128,7 +129,10 @@ export async function probeNextcloudTalkBotResponseFeature(params: {
     });
     try {
       if (!response.ok) {
-        const body = await readResponseTextLimited(response, 4 * 1024).catch(() => "");
+        const body = await readResponseTextLimited(
+          response,
+          BOT_PREFLIGHT_ERROR_BODY_LIMIT_BYTES,
+        ).catch(() => "");
         return {
           ok: false,
           code: "api_error",
