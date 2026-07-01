@@ -95,6 +95,22 @@ describe("docsSearchCommand", () => {
     expect(runtime.log).toHaveBeenCalled();
   });
 
+  it("handles malformed JSON from docs search API gracefully", async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response("not json at all", {
+        status: 200,
+        headers: { "Content-Type": "text/plain" },
+      }),
+    );
+    const runtime = makeRuntime();
+
+    await docsSearchCommand(["plugin", "allowlist"], runtime);
+
+    expect(runtime.error).not.toHaveBeenCalled();
+    expect(runtime.exit).not.toHaveBeenCalled();
+    expect(runtime.log).toHaveBeenCalledWith(expect.stringContaining("No results"));
+  });
+
   it("rejects oversized docs search responses", async () => {
     const ONE_MIB = 1024 * 1024;
     const cancel = vi.fn();
