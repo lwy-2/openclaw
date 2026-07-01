@@ -124,10 +124,13 @@ export async function sendWebhookMessageDiscord(
     await throwWebhookResponseError(response);
   }
 
-  const payload = await readProviderJsonResponse<{
-    id?: string;
-    channel_id?: string;
-  }>(response, "Discord webhook send");
+  const payload =
+    response.status === 204
+      ? ({} as { id?: string; channel_id?: string })
+      : await readProviderJsonResponse<{
+          id?: string;
+          channel_id?: string;
+        }>(response, "Discord webhook send");
   try {
     recordChannelActivity({
       channel: "discord",
