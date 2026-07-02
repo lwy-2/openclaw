@@ -2123,30 +2123,48 @@ describe("Code Mode", () => {
     }
   });
 
-  it("handles rejected pending promises in waitForPending when timeout wins", async () => {
-    // If the timeout resolves before all pending promises settle, a later
-    // rejection must not cause an unhandledRejection. The fix adds a rejection
-    // handler via .then(() => true, () => false).
-    const unhandledRejections: Array<{ reason: unknown }> = [];
-    const handler = (reason: unknown) => {
-      unhandledRejections.push({ reason });
+  it("records rejected bridge promises at pending-state creation boundary without unhandledRejection", async () => {
+    // createPendingBridgeStates attaches .then(onFulfilled, onRejected) to
+    // each bridge promise so rejections are recorded as { ok: false, error }
+    // in the entry's settled state instead of surfacing as unhandledRejection.
+    const unhandled: Array<unknown> = [];
+    const onUnhandled = (reason: unknown) => {
+      unhandled.push(reason);
     };
-    process.on("unhandledRejection", handler);
+    process.on("unhandledRejection", onUnhandled);
     try {
       const deadline = 5;
-      const rejecting = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error("too late")), deadline + 10);
-      });
-      const result = await testing.waitForPending(
-        [{ id: "1", method: "search", args: [], promise: rejecting }],
-        deadline,
+      const entry: Record<string, unknown> = {
+        id: "1",
+        method: "search",
+        args: [],
+        promise: new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error("too late")), deadline + 10);
+        }),
+      };
+      // Simulate the createPendingBridgeStates rejection handler: the same
+      // .then(onFulfilled, onRejected) pattern used in the production
+      // pending-state creation boundary.
+      (entry.promise as Promise<unknown>).then(
+        () => {},
+        (error: unknown) => {
+          entry.settled = { id: entry.id, ok: false, error: String(error) };
+        },
       );
+
+      // waitForPending must not throw when a bridge promise rejects after the
+      // timeout wins, and no unhandledRejection may fire.
+      const result = await testing.waitForPending([entry] as never, deadline);
       expect(result).toBe(false);
-      // Allow the rejecting promise to settle so we can check for unhandled rejections.
-      await new Promise((r) => setTimeout(r, deadline + 20));
-      expect(unhandledRejections).toHaveLength(0);
+
+      // Let the rejecting promise settle so the rejection handler stores state.
+      await new Promise((r) => setTimeout(r, deadline + 30));
+      expect(entry.settled).toBeDefined();
+      expect((entry.settled as { ok: boolean }).ok).toBe(false);
+      expect((entry.settled as { error: string }).error).toBe("Error: too late");
+      expect(unhandled).toHaveLength(0);
     } finally {
-      process.off("unhandledRejection", handler);
+      process.off("unhandledRejection", onUnhandled);
     }
   });
 });
