@@ -924,7 +924,10 @@ async function waitForPending(pending: PendingBridgeState[], timeoutMs: number):
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     return await Promise.race([
-      Promise.all(pendingPromises).then(() => true),
+      Promise.all(pendingPromises).then(
+        () => true,
+        () => false,
+      ),
       new Promise<boolean>((resolve) => {
         timer = setTimeout(() => resolve(false), timeoutMs);
       }),
