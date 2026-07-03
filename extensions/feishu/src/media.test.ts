@@ -829,11 +829,10 @@ describe("saveMessageResourceFeishu", () => {
     expect(result.fileName).toBe("ios-video.mp4");
   });
 
-  it("rethrows the original HTTP 502 when the media retry fails", async () => {
+  it("rethrows the media-retry error instead of the original 502 when the retry fails", async () => {
     const originalError = httpStatusError(502);
-    messageResourceGetMock
-      .mockRejectedValueOnce(originalError)
-      .mockRejectedValueOnce(new Error("media retry failed"));
+    const retryError = new Error("media retry failed");
+    messageResourceGetMock.mockRejectedValueOnce(originalError).mockRejectedValueOnce(retryError);
 
     await expect(
       withIsolatedHome(() =>
@@ -845,7 +844,7 @@ describe("saveMessageResourceFeishu", () => {
           maxBytes: 1024,
         }),
       ),
-    ).rejects.toBe(originalError);
+    ).rejects.toBe(retryError);
 
     expect(
       mockCallArg<{ params?: { type?: string } }>(messageResourceGetMock, 0, 0).params,

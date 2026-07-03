@@ -383,18 +383,14 @@ export async function saveMessageResourceFeishu(params: {
     if (type !== "file" || !isHttpStatusError(err, 502)) {
       throw err;
     }
-    try {
-      return await saveMessageResourceWithType({
-        client,
-        messageId,
-        fileKey: normalizedFileKey,
-        type: "media",
-        maxBytes,
-        originalFilename,
-      });
-    } catch {
-      throw err;
-    }
+    return await saveMessageResourceWithType({
+      client,
+      messageId,
+      fileKey: normalizedFileKey,
+      type: "media",
+      maxBytes,
+      originalFilename,
+    });
   }
 }
 
