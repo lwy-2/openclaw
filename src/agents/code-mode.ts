@@ -775,9 +775,17 @@ function createPendingBridgeStates(params: {
       onUpdate: params.onUpdate,
     });
     const state: PendingBridgeState = { ...request, promise };
-    void promise.then((settled) => {
-      state.settled = settled;
-    });
+    // Record both fulfilled and rejected bridge promises as settled state at
+    // creation time so late rejections are captured instead of surfacing as
+    // unhandledRejection through a bare .then(onFulfilled).
+    promise.then(
+      (settled) => {
+        state.settled = settled;
+      },
+      (error) => {
+        state.settled = { id: request.id, ok: false, error: String(error) };
+      },
+    );
     return state;
   });
 }
@@ -926,7 +934,14 @@ async function waitForPending(pending: PendingBridgeState[], timeoutMs: number):
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     return await Promise.race([
-      Promise.all(pendingPromises).then(() => true),
+      // Individual bridge promises have rejection handlers attached at creation time
+      // (see createPendingBridgeStates) so unhandledRejection is prevented. Promise.all
+      // still rejects if one rejects; the () => false handler keeps the race from
+      // throwing when a bridge request fails.
+      Promise.all(pendingPromises).then(
+        () => true,
+        () => false,
+      ),
       new Promise<boolean>((resolve) => {
         timer = setTimeout(() => resolve(false), timeoutMs);
       }),
@@ -1276,6 +1291,7 @@ export const testing = {
   runCodeModeWorker,
   resolveCodeModeWorkerUrl,
   resolveCodeModeConfig,
+  waitForPending,
   getTypescriptRuntimePromise: (): Promise<typeof import("typescript")> | null =>
     typescriptRuntimeLoader.peek() ?? null,
   setTypescriptRuntimeForTest: (runtime: typeof import("typescript") | null) => {
